@@ -2,6 +2,7 @@
   "name": "video",
   "version": "0.1.0",
   "private": true,
+  "homepage": "https://roisoleil520.github.io/simpleVideoClip",
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
