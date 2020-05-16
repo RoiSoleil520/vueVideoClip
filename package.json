@@ -1,12 +1,21 @@
 {
   "name": "video",
   "version": "0.1.0",
-  "private": true,
-  "homepage": "https://roisoleil520.github.io/simpleVideoClip",
+  "description": "A simple video clip with vue.js",
+  "homepage": "https://roisoleil520.github.io/vueVideoClip",
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "lib": "vue-cli-service build --target lib --name vueVideoClip --dest lib ./src/components/index.js"
+  },
+  "main": "lib/vueVideoClip.umd.min.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RoiSoleil520/vueVideoClip"
+  },
+  "bugs": {
+    "url": "https://github.com/RoiSoleil520/vueVideoClip/issues"
   },
   "dependencies": {
     "core-js": "^3.6.4",

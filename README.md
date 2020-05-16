@@ -1,4 +1,4 @@
-# video
+# [简单在线视频剪辑插件](https://roisoleil520.github.io/vueVideoClip/dist)
 
 ## Project setup
 ```

@@ -1,9 +1,9 @@
 <template>
-  <div class="custom-video">
+  <div class="custom-video" v-if="videoShow">
     <div class="custom-video_container" ref="custom-video_container">
       <div class="custom-video_video">
         <video ref="custom-video">
-          <source :src="videoOption.src" type="video/mp4" />
+          <source :src="url" type="video/mp4" />
           <p>设备不支持</p>
         </video>
       </div>
@@ -122,25 +122,19 @@
         </div>
       </div>
     </div>
-    <div>
-      <div style="color:#fff;">当前播放至：{{ currentTime }}</div>
-      <div style="color:#fff;">start：{{ videoEdit.start }}</div>
-      <div style="color:#fff;">end：{{ videoEdit.end }}</div>
-    </div>
   </div>
 </template>
 <script>
-/* eslint-disable */
-import videoHorizontal from "../static/media/test.mp4";
-// var videoHorizontal =
-//   "https://video1.dxycdn.com/2020/0313/480/3401815553919904007-48.mp4";
-// import videoPortrait from "../static/media/videoPortrait.mp4";
 export default {
-  data() {
+  name: 'vueVideoClip',
+  props: {
+    url: {
+      type: String,
+      required: true
+    }
+  },
+  data () {
     return {
-      videoOption: {
-        src: videoHorizontal // 视频
-      },
       videoState: {
         play: false, // 播放状态
         currentPosition: 0 // 当前播放点距离左边的百分比
@@ -154,8 +148,8 @@ export default {
       },
       videoDom: null, // video
       duration: 0, // 视频总时长
-      currentTime: 0, // 视频当前播放时长
-      objectURL: "",
+      currentTime: 0, // 视频当前播放时长 = this.videoDom.currentTime
+      objectURL: '',
       videoUnit: 0,
       videoUnitWidth: 0,
       videoRatio: 0,
@@ -164,290 +158,317 @@ export default {
       leftMovePercentage: 0,
       leftMoveInit: 0,
       rightMovePercentage: 0,
-      rightMoveInit: 0
-    };
+      rightMoveInit: 0,
+      videoShow: true
+    }
   },
-  mounted() {
-    // 初始化相关元数据
-    this.videoDom = this.$refs["custom-video"];
-    this.leftIconDom = this.$refs["move-left-icon"];
-    this.rightIconDom = this.$refs["move-right-icon"];
-    this.thumbsWidth = this.$refs.thumbs.clientWidth;
-    this.leftMoveInit = this.getOffset(this.leftIconDom).left + 5;
-    this.rightMoveInit = this.getOffset(this.rightIconDom).left + 5;
-    this.minWidthPercentage = ((20 / this.thumbsWidth) * 100).toFixed(4); // 最小裁剪区域所占百分比
-    this.initMedaData();
-
-    this.transformBlob();
-    document.addEventListener("mouseup", ev => {
-      this.handleMoveStatus = false;
-    });
-    document.addEventListener("mousemove", ev => {
-      if (!this.handleMoveStatus) return;
-      if (this.handleMoveDirection === "left") {
-        const distanceMoveXLeft = ev.clientX - this.leftMoveInit;
-
-        this.leftMovePercentage =
-          distanceMoveXLeft > 0
-            ? ((distanceMoveXLeft / (this.thumbsWidth - 20)) * 100).toFixed(4)
-            : 0;
-
-        // 控制裁剪百分比最小值
-        if (
-          this.leftMovePercentage >
-          100 - this.rightMovePercentage - this.minWidthPercentage
-        ) {
-          this.leftMovePercentage =
-            100 - this.rightMovePercentage - this.minWidthPercentage;
-        }
-
-        this.videoEdit.start = (
-          (this.videoEdit.duration * this.leftMovePercentage) /
-          100
-        ).toFixed(4);
-      }
-      if (this.handleMoveDirection === "right") {
-        const distanceMoveXRight = this.rightMoveInit - ev.clientX;
-
-        this.rightMovePercentage =
-          distanceMoveXRight > 0
-            ? ((distanceMoveXRight / (this.thumbsWidth - 20)) * 100).toFixed(4)
-            : 0;
-
-        // 控制裁剪百分比最小值
-        if (
-          this.rightMovePercentage >
-          100 - this.leftMovePercentage - this.minWidthPercentage
-        ) {
-          this.rightMovePercentage =
-            100 - this.leftMovePercentage - this.minWidthPercentage;
-        }
-
-        this.videoEdit.end = (
-          this.videoEdit.duration *
-          (1 - this.rightMovePercentage / 100)
-        ).toFixed(4);
-      }
-      this.handleClick(ev, this.handleMoveDirection);
-    });
+  mounted () {
+    this.init()
+    window.onresize = () => {
+      this.throttle(this.init(), 300)
+    }
   },
   computed: {
     inputStartLeftTime: {
-      set(val) {
-        val = val * 60 + this.toInt(document.getElementById("range-1").value);
+      set (val) {
+        val = val * 60 + this.toInt(document.getElementById('range-1').value)
         if (
           val > this.videoEdit.duration ||
           this.videoEdit.duration - val < 10
         ) {
-          val = 0;
+          val = 0
         }
-        this.videoEdit.start = val;
+        this.videoEdit.start = val
       },
-      get() {
-        return this.timeTranslate(this.videoEdit.start).split(":")[0];
+      get () {
+        return this.timeTranslate(this.videoEdit.start).split(':')[0]
       }
     },
     inputStartRightTime: {
-      set(val) {
-        val = this.toInt(document.getElementById("range-0").value) * 60 + val;
+      set (val) {
+        val = this.toInt(document.getElementById('range-0').value) * 60 + val
         if (
           val > this.videoEdit.duration ||
           this.videoEdit.duration - val < 10
         ) {
-          val = 0;
+          val = 0
         }
-        this.videoEdit.start = val;
+        this.videoEdit.start = val
       },
-      get() {
-        return this.timeTranslate(this.videoEdit.start).split(":")[1];
+      get () {
+        return this.timeTranslate(this.videoEdit.start).split(':')[1]
       }
     },
     inputEndLeftTime: {
-      set(val) {
-        val = val * 60 + this.toInt(document.getElementById("range-3").value);
+      set (val) {
+        val = val * 60 + this.toInt(document.getElementById('range-3').value)
         if (val > this.videoEdit.duration || val - this.videoEdit.start < 10) {
-          val = this.videoEdit.duration;
+          val = this.videoEdit.duration
         }
-        this.videoEdit.end = val;
+        this.videoEdit.end = val
       },
-      get() {
-        return this.timeTranslate(this.videoEdit.end).split(":")[0];
+      get () {
+        return this.timeTranslate(this.videoEdit.end).split(':')[0]
       }
     },
     inputEndRightTime: {
-      set(val) {
-        val = this.toInt(document.getElementById("range-2").value) * 60 + val;
+      set (val) {
+        val = this.toInt(document.getElementById('range-2').value) * 60 + val
         if (val > this.videoEdit.duration || val - this.videoEdit.start < 10) {
-          val = this.videoEdit.duration;
+          val = this.videoEdit.duration
         }
-        this.videoEdit.end = val;
+        this.videoEdit.end = val
       },
-      get() {
-        return this.timeTranslate(this.videoEdit.end).split(":")[1];
+      get () {
+        return this.timeTranslate(this.videoEdit.end).split(':')[1]
       }
     }
   },
   watch: {
-    "videoEdit.start": {
-      handler(val) {
-        this.currentTime = val;
+    'videoEdit.start': {
+      handler (val) {
+        this.currentTime = val
         this.videoEdit.currentPosition =
-          (this.currentTime / this.videoEdit.duration) * 100;
-        this.leftMovePercentage = this.videoEdit.currentPosition;
+          (this.currentTime / this.videoEdit.duration) * 100
+        this.leftMovePercentage = this.videoEdit.currentPosition
+        this.$emit('getTime', {
+          start: val,
+          end: this.videoEdit.end
+        })
       },
       deep: true
     },
-    "videoEdit.end": {
-      handler(val) {
-        this.currentTime = val;
+    'videoEdit.end': {
+      handler (val) {
+        this.currentTime = val
         this.videoEdit.currentPosition =
-          (this.currentTime / this.videoEdit.duration) * 100;
-        this.rightMovePercentage = 100 - this.videoEdit.currentPosition;
+          (this.currentTime / this.videoEdit.duration) * 100
+        this.rightMovePercentage = 100 - this.videoEdit.currentPosition
+        this.$emit('getTime', {
+          start: this.videoEdit.start,
+          end: val
+        })
       },
       deep: true
     }
   },
   methods: {
-    toInt(val) {
-      return parseInt(val) || 0;
+    throttle (fn, threshold, scope) {
+      let timer
+      return function () {
+        const context = scope || this
+        const args = arguments
+        if (!timer) {
+          timer = setTimeout(function () {
+            fn.apply(context, args)
+            timer = null
+          }, threshold)
+        }
+      }
     },
-    togglePlayStatus() {
+    init () {
+      // 初始化相关元数据
+      this.videoDom = this.$refs['custom-video']
+      this.leftIconDom = this.$refs['move-left-icon']
+      this.rightIconDom = this.$refs['move-right-icon']
+      this.thumbsWidth = this.$refs.thumbs.clientWidth
+      this.leftMoveInit = this.getOffset(this.leftIconDom).left + 5
+      this.rightMoveInit = this.getOffset(this.rightIconDom).left + 5
+      this.minWidthPercentage = ((20 / this.thumbsWidth) * 100).toFixed(4) // 最小裁剪区域所占百分比
+      this.initMedaData()
+
+      this.transformBlob()
+      document.addEventListener('mouseup', ev => {
+        this.handleMoveStatus = false
+      })
+      document.addEventListener('mousemove', ev => {
+        if (!this.handleMoveStatus) return
+        if (this.handleMoveDirection === 'left') {
+          const distanceMoveXLeft = ev.clientX - this.leftMoveInit
+
+          this.leftMovePercentage =
+          distanceMoveXLeft > 0
+            ? ((distanceMoveXLeft / (this.thumbsWidth - 20)) * 100).toFixed(4)
+            : 0
+
+          // 控制裁剪百分比最小值
+          if (
+            this.leftMovePercentage >
+          100 - this.rightMovePercentage - this.minWidthPercentage
+          ) {
+            this.leftMovePercentage =
+            100 - this.rightMovePercentage - this.minWidthPercentage
+          }
+
+          this.videoEdit.start = (
+            (this.videoEdit.duration * this.leftMovePercentage) /
+          100
+          ).toFixed(4)
+        }
+        if (this.handleMoveDirection === 'right') {
+          const distanceMoveXRight = this.rightMoveInit - ev.clientX
+
+          this.rightMovePercentage =
+          distanceMoveXRight > 0
+            ? ((distanceMoveXRight / (this.thumbsWidth - 20)) * 100).toFixed(4)
+            : 0
+
+          // 控制裁剪百分比最小值
+          if (
+            this.rightMovePercentage >
+          100 - this.leftMovePercentage - this.minWidthPercentage
+          ) {
+            this.rightMovePercentage =
+            100 - this.leftMovePercentage - this.minWidthPercentage
+          }
+
+          this.videoEdit.end = (
+            this.videoEdit.duration *
+          (1 - this.rightMovePercentage / 100)
+          ).toFixed(4)
+        }
+        this.handleClick(ev, this.handleMoveDirection)
+      })
+    },
+    toInt (val) {
+      return parseInt(val) || 0
+    },
+    togglePlayStatus () {
       // 播放暂停按钮事件
-      this.videoEdit.play ? this.toggleVideoPause() : this.toggleVideoPlay();
+      this.videoEdit.play ? this.toggleVideoPause() : this.toggleVideoPlay()
     },
-    toggleVideoPlay() {
+    toggleVideoPlay () {
       // 处理当前位置在末尾的时候先初始化开始播放时间
       if (this.videoEdit.end - this.currentTime < 0.01) {
-        this.videoDom.currentTime = this.videoEdit.start;
+        this.videoDom.currentTime = this.videoEdit.start
       }
       // 为了取消当前点平滑移动到开始点的过渡
       setTimeout(() => {
-        this.videoDom.play();
-        this.videoEdit.play = true;
-      }, 50);
+        this.videoDom.play()
+        this.videoEdit.play = true
+      }, 50)
     },
-    toggleVideoPause() {
-      this.videoDom.pause();
-      this.videoEdit.play = false;
+    toggleVideoPause () {
+      this.videoDom.pause()
+      this.videoEdit.play = false
     },
-    playEnd() {
-      this.videoDom.currentTime = this.videoEdit.start;
-      this.videoDom.pause();
-      this.videoEdit.play = false;
+    playEnd () {
+      this.videoDom.currentTime = this.videoEdit.start
+      this.videoDom.pause()
+      this.videoEdit.play = false
     },
-    transformBlob() {
-      fetch(videoHorizontal)
+    transformBlob () {
+      fetch(this.url)
         .then(response => response.blob())
         .then(myBlob => {
-          this.objectURL = URL.createObjectURL(myBlob);
-        });
+          this.objectURL = URL.createObjectURL(myBlob)
+        })
     },
-    initMedaData() {
+    initMedaData () {
       // 初始化video相关事件
-      this.videoDom.addEventListener("loadedmetadata", () => {
+      this.videoDom.addEventListener('loadedmetadata', () => {
         // 获取视频总时长
-        this.videoEdit.duration = this.videoDom.duration; //视频总时长
-        this.videoEdit.end = this.videoEdit.duration;
-      });
-      const self = this;
-      this.videoDom.addEventListener("canplay", function() {
+        this.videoEdit.duration = this.videoDom.duration // 视频总时长
+        this.videoEdit.end = this.videoEdit.duration
+      })
+      const self = this
+      this.videoDom.addEventListener('canplay', function () {
         // 监听视频可播放时的状态
-        self.videoRatio = this.videoHeight / this.videoWidth;
-        self.isPortraitVideo = self.videoRatio > 1.5; // 是否是竖向视频
-        self.videoUnitWidth = self.isPortraitVideo ? 28 : 88; // 单个缩略图宽度
-        self.thumbCount = Math.ceil(self.thumbsWidth / self.videoUnitWidth); // 缩略图个数
-        self.videoUnit = self.videoEdit.duration / self.thumbCount;
+        self.videoRatio = this.videoHeight / this.videoWidth
+        self.isPortraitVideo = self.videoRatio > 1.5 // 是否是竖向视频
+        self.videoUnitWidth = self.isPortraitVideo ? 28 : 88 // 单个缩略图宽度
+        self.thumbCount = Math.ceil(self.thumbsWidth / self.videoUnitWidth) // 缩略图个数
+        self.videoUnit = self.videoEdit.duration / self.thumbCount
         const innerMoveLeft = Math.round(
           (self.thumbCount * self.videoUnitWidth - self.thumbsWidth) / 2
-        );
+        )
         self.$nextTick(() => {
-          self.$refs["thumbs-inner"].style.marginLeft = `${-innerMoveLeft}px`;
-        });
-      });
+          self.$refs['thumbs-inner'].style.marginLeft = `${-innerMoveLeft}px`
+        })
+      })
 
-      this.videoDom.addEventListener("timeupdate", () => {
-        console.log(this.videoDom.currentTime);
+      this.videoDom.addEventListener('timeupdate', () => {
         // 监听视频播放过程中的时间
         this.videoEdit.currentPosition =
-          (this.videoDom.currentTime / this.videoEdit.duration) * 100;
-        this.currentTime = this.videoDom.currentTime;
+          (this.videoDom.currentTime / this.videoEdit.duration) * 100
+        this.currentTime = this.videoDom.currentTime
         if (
           this.videoEdit.end - this.currentTime < 0.01 &&
           this.videoEdit.play
         ) {
-          this.playEnd();
+          this.playEnd()
         }
-      });
+      })
     },
-    handleMoveDown(ev, direction) {
-      this.handleMoveStatus = true;
-      this.handleMoveDirection = direction;
-      this.toggleVideoPause();
-      this.handleClick(ev, direction);
+    handleMoveDown (ev, direction) {
+      this.handleMoveStatus = true
+      this.handleMoveDirection = direction
+      this.toggleVideoPause()
+      this.handleClick(ev, direction)
     },
-    handleClick(ev, direction) {
+    handleClick (ev, direction) {
       // 区分各种情况是为了获取各种情况的当前播放点更准确
-      if (direction === "left") {
-        this.videoEdit.currentPosition = this.leftMovePercentage;
-      } else if (direction === "right") {
-        this.videoEdit.currentPosition = 100 - this.rightMovePercentage;
+      if (direction === 'left') {
+        this.videoEdit.currentPosition = this.leftMovePercentage
+      } else if (direction === 'right') {
+        this.videoEdit.currentPosition = 100 - this.rightMovePercentage
       } else {
         // 点击中间剪辑区域
         this.videoEdit.currentPosition =
-          ((ev.clientX - this.leftMoveInit) / this.thumbsWidth) * 100;
+          ((ev.clientX - this.leftMoveInit) / this.thumbsWidth) * 100
       }
       this.currentTime = (
         (this.videoEdit.currentPosition * this.videoEdit.duration) /
         100
-      ).toFixed(4);
-      this.videoDom.currentTime = this.currentTime;
+      ).toFixed(4)
+      this.videoDom.currentTime = this.currentTime
       // 处理两边 mask 点击而非滑动时,拖拽区域的处理
-      if (ev.target.dataset.direction === "left" && !this.handleMoveStatus) {
-        this.leftMovePercentage = this.videoEdit.currentPosition;
-        this.videoEdit.start = this.currentTime;
+      if (ev.target.dataset.direction === 'left' && !this.handleMoveStatus) {
+        this.leftMovePercentage = this.videoEdit.currentPosition
+        this.videoEdit.start = this.currentTime
       }
-      if (ev.target.dataset.direction === "right" && !this.handleMoveStatus) {
-        this.rightMovePercentage = 100 - this.videoEdit.currentPosition;
-        this.videoEdit.end = this.currentTime;
+      if (ev.target.dataset.direction === 'right' && !this.handleMoveStatus) {
+        this.rightMovePercentage = 100 - this.videoEdit.currentPosition
+        this.videoEdit.end = this.currentTime
       }
       // 百分比取最大值：100 最小值：0
       this.videoEdit.currentPosition =
         this.videoEdit.currentPosition > 100
           ? 100
-          : this.videoEdit.currentPosition;
+          : this.videoEdit.currentPosition
       this.videoEdit.currentPosition =
-        this.videoEdit.currentPosition < 0 ? 0 : this.videoEdit.currentPosition;
+        this.videoEdit.currentPosition < 0 ? 0 : this.videoEdit.currentPosition
     },
-    getOffset(node, offset) {
+    getOffset (node, offset) {
       // 获取当前屏幕下进度条的左偏移量和又偏移量
       if (!offset) {
-        offset = {};
-        offset.left = 0;
-        offset.top = 0;
+        offset = {}
+        offset.left = 0
+        offset.top = 0
       }
       if (node === document.body || node === null) {
-        return offset;
+        return offset
       }
-      offset.top += node.offsetTop;
-      offset.left += node.offsetLeft;
-      return this.getOffset(node.offsetParent, offset);
+      offset.top += node.offsetTop
+      offset.left += node.offsetLeft
+      return this.getOffset(node.offsetParent, offset)
     },
-    timeTranslate(t) {
+    timeTranslate (t) {
       // 时间转化
-      let m = Math.floor(t / 60);
-      m < 10 && (m = "0" + m);
-      return m + ":" + ((t % 60) / 100).toFixed(2).slice(-2);
+      let m = Math.floor(t / 60)
+      m < 10 && (m = '0' + m)
+      return m + ':' + ((t % 60) / 100).toFixed(2).slice(-2)
     }
   }
-};
+}
 </script>
 <style scoped lang="scss">
 .custom-video {
   margin: 0 auto;
   min-height: 100%;
-  background: #5b49b9;
   padding: 20px;
   border-radius: 20px;
+  min-width: 500px;
   &_container {
     height: 400px;
     margin: 0 auto;
@@ -455,10 +476,7 @@ export default {
     overflow: hidden;
   }
   &_video {
-    /* width: 100%;
-	  height: auto; */
     height: 100%;
-    /* object-fit: fill; */
     video {
       height: 100%;
     }
@@ -597,8 +615,7 @@ export default {
     }
     &-input {
       height: 30px;
-      border: 1px solid #fff;
-      background: #fff;
+      background: rgba(0, 0, 0, 0.3);
       border-radius: 15px;
       overflow: hidden;
       padding: 0 24px;
@@ -611,6 +628,7 @@ export default {
         background: transparent;
         border: none;
         font-size: 14px;
+        color: #fff;
       }
       span {
         width: 8px;
@@ -619,6 +637,7 @@ export default {
         float: left;
         margin: 0;
         padding: 0;
+        color: #fff;
       }
     }
   }
