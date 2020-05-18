@@ -2,8 +2,7 @@
   <div class="custom-video" v-if="videoShow">
     <div class="custom-video_container" ref="custom-video_container">
       <div class="custom-video_video">
-        <video ref="custom-video">
-          <source :src="url" type="video/mp4" />
+        <video ref="custom-video" :src="blobURL">
           <p>设备不支持</p>
         </video>
       </div>
@@ -12,14 +11,24 @@
     <div class="video-controls" @mousedown="handleClick">
       <div class="thumbs" ref="thumbs">
         <div class="inner" v-if="thumbCount" ref="thumbs-inner">
-          <video
-            :width="videoUnitWidth"
-            height="50"
-            preload="metadata"
-            :src="`${objectURL}#t=${videoUnit * index}`"
-            v-for="(item, index) in Array(thumbCount).fill(1)"
+          <div
+            class="inner-item"
+            :style="`width:${videoUnitWidth}px;`"
+            v-for="(item, index) in thumbArr"
             :key="index"
-          ></video>
+          >
+            <video
+              width="100%"
+              preload="metadata"
+              :src="item.url"
+              @canplay="item.loading = false"
+            ></video>
+            <div class="inner-loading" v-if="item.loading">
+              <div class="loading">
+                <div class="loading-con"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="control-bars" ref="control-bars">
@@ -135,6 +144,7 @@ export default {
   },
   data () {
     return {
+      blobURL: '',
       videoState: {
         play: false, // 播放状态
         currentPosition: 0 // 当前播放点距离左边的百分比
@@ -155,6 +165,7 @@ export default {
       videoRatio: 0,
       isPortraitVideo: false,
       thumbCount: 0,
+      thumbArr: [], // 缩略图数组
       leftMovePercentage: 0,
       leftMoveInit: 0,
       rightMovePercentage: 0,
@@ -287,44 +298,46 @@ export default {
           const distanceMoveXLeft = ev.clientX - this.leftMoveInit
 
           this.leftMovePercentage =
-          distanceMoveXLeft > 0
-            ? ((distanceMoveXLeft / (this.thumbsWidth - 20)) * 100).toFixed(4)
-            : 0
+            distanceMoveXLeft > 0
+              ? ((distanceMoveXLeft / (this.thumbsWidth - 20)) * 100).toFixed(4)
+              : 0
 
           // 控制裁剪百分比最小值
           if (
             this.leftMovePercentage >
-          100 - this.rightMovePercentage - this.minWidthPercentage
+            100 - this.rightMovePercentage - this.minWidthPercentage
           ) {
             this.leftMovePercentage =
-            100 - this.rightMovePercentage - this.minWidthPercentage
+              100 - this.rightMovePercentage - this.minWidthPercentage
           }
 
           this.videoEdit.start = (
             (this.videoEdit.duration * this.leftMovePercentage) /
-          100
+            100
           ).toFixed(4)
         }
         if (this.handleMoveDirection === 'right') {
           const distanceMoveXRight = this.rightMoveInit - ev.clientX
 
           this.rightMovePercentage =
-          distanceMoveXRight > 0
-            ? ((distanceMoveXRight / (this.thumbsWidth - 20)) * 100).toFixed(4)
-            : 0
+            distanceMoveXRight > 0
+              ? ((distanceMoveXRight / (this.thumbsWidth - 20)) * 100).toFixed(
+                4
+              )
+              : 0
 
           // 控制裁剪百分比最小值
           if (
             this.rightMovePercentage >
-          100 - this.leftMovePercentage - this.minWidthPercentage
+            100 - this.leftMovePercentage - this.minWidthPercentage
           ) {
             this.rightMovePercentage =
-            100 - this.leftMovePercentage - this.minWidthPercentage
+              100 - this.leftMovePercentage - this.minWidthPercentage
           }
 
           this.videoEdit.end = (
             this.videoEdit.duration *
-          (1 - this.rightMovePercentage / 100)
+            (1 - this.rightMovePercentage / 100)
           ).toFixed(4)
         }
         this.handleClick(ev, this.handleMoveDirection)
@@ -366,7 +379,7 @@ export default {
         if (this.status === 200) {
           // 获取blob对象
           const myBlob = this.response
-          self.objectURL = URL.createObjectURL(myBlob)
+          self.blobURL = URL.createObjectURL(myBlob)
         } else {
           alert('视频转换失败')
         }
@@ -388,6 +401,17 @@ export default {
         self.videoUnitWidth = self.isPortraitVideo ? 28 : 88 // 单个缩略图宽度
         self.thumbCount = Math.ceil(self.thumbsWidth / self.videoUnitWidth) // 缩略图个数
         self.videoUnit = self.videoEdit.duration / self.thumbCount
+
+        // 缩略图
+        if (self.thumbArr.length !== self.thumbCount) {
+          self.thumbArr = []
+          for (let i = 0; i < self.thumbCount; i++) {
+            self.thumbArr.push({
+              url: `${self.blobURL}#t=${self.videoUnit * i}`,
+              loading: true
+            })
+          }
+        }
         const innerMoveLeft = Math.round(
           (self.thumbCount * self.videoUnitWidth - self.thumbsWidth) / 2
         )
@@ -473,6 +497,7 @@ export default {
 </script>
 <style scoped lang="scss">
 .custom-video {
+  user-select: none;
   margin: 0 auto;
   min-height: 100%;
   padding: 20px;
@@ -498,6 +523,17 @@ export default {
   background: #ffc7d1;
   .inner {
     height: 50px;
+    display: flex;
+    &-item {
+      position: relative;
+    }
+    &-loading {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 100%;
+    }
   }
   video {
     object-fit: cover;
@@ -651,6 +687,34 @@ export default {
         color: #fff;
       }
     }
+  }
+}
+.loading {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  &-con {
+    position: absolute;
+    animation: loading 1s linear infinite;
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    box-shadow: 0 2px 0 0 #fff; // ffc7d1
+    transform-origin: 50% 50%;
+  }
+}
+@keyframes loading {
+  0% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+  100% {
+    transform: rotate(360deg);
   }
 }
 </style>
