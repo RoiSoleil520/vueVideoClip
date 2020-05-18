@@ -358,11 +358,20 @@ export default {
       this.videoEdit.play = false
     },
     transformBlob () {
-      fetch(this.url)
-        .then(response => response.blob())
-        .then(myBlob => {
-          this.objectURL = URL.createObjectURL(myBlob)
-        })
+      const self = this
+      const xhr = new XMLHttpRequest()
+      xhr.open('GET', this.url, true)
+      xhr.responseType = 'blob'
+      xhr.onload = function (e) {
+        if (this.status === 200) {
+          // 获取blob对象
+          const myBlob = this.response
+          self.objectURL = URL.createObjectURL(myBlob)
+        } else {
+          alert('视频转换失败')
+        }
+      }
+      xhr.send()
     },
     initMedaData () {
       // 初始化video相关事件
@@ -486,6 +495,7 @@ export default {
   white-space: nowrap;
   overflow: hidden;
   height: 50px;
+  background: #ffc7d1;
   .inner {
     height: 50px;
   }
@@ -509,7 +519,7 @@ export default {
     bottom: 0;
     top: 0;
     left: 0;
-    border: 1px solid #00e0ff;
+    border: 1px solid #04f0fb;
     z-index: 10;
     min-width: 20px;
   }
@@ -554,9 +564,10 @@ export default {
     position: absolute;
     width: 10px;
     height: 10px;
-    background: #00e0ff;
+    background: #04f0fb;
     top: 50%;
     transform: translateY(-50%);
+    border-radius: 50%;
     cursor: ew-resize;
     z-index: 2;
     &:active {
