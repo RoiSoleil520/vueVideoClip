@@ -183,7 +183,7 @@ export default {
     inputStartLeftTime: {
       set (val) {
         val = val * 60 + this.toInt(document.getElementById('range-1').value)
-        if (val >= this.videoEdit.end) {
+        if (val >= this.videoEdit.end || val < 0) {
           val = 0
         }
         this.videoEdit.start = val
@@ -195,7 +195,7 @@ export default {
     inputStartRightTime: {
       set (val) {
         val = this.toInt(document.getElementById('range-0').value) * 60 + val
-        if (val >= this.videoEdit.end) {
+        if (val >= this.videoEdit.end || val < 0) {
           val = 0
         }
         this.videoEdit.start = val
@@ -207,7 +207,7 @@ export default {
     inputEndLeftTime: {
       set (val) {
         val = val * 60 + this.toInt(document.getElementById('range-3').value)
-        if (val <= this.videoEdit.start) {
+        if (val <= this.videoEdit.start || val > this.videoEdit.duration) {
           val = this.videoEdit.duration
         }
         this.videoEdit.end = val
@@ -219,7 +219,7 @@ export default {
     inputEndRightTime: {
       set (val) {
         val = this.toInt(document.getElementById('range-2').value) * 60 + val
-        if (val <= this.videoEdit.start) {
+        if (val <= this.videoEdit.start || val > this.videoEdit.duration) {
           val = this.videoEdit.duration
         }
         this.videoEdit.end = val
